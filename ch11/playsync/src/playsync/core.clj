@@ -59,4 +59,12 @@
 (go (println (<! echo-buffer))
     (println (<! echo-buffer)))
 
+;; Each process performing a "parking put" will wait forever...
+(def hi-chan (chan))
+(doseq [n (range 1000)]
+  (go (>! hi-chan (str "Hi " n))))
+
+;; ...until another process takes values.
+(drop 995 (repeatedly 1000 (fn [] (<!! hi-chan))))
+
 (println "Ending `playsync.core`")
