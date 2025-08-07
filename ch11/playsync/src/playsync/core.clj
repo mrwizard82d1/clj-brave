@@ -67,4 +67,10 @@
 ;; ...until another process takes values.
 (drop 995 (repeatedly 1000 (fn [] (<!! hi-chan))))
 
+;; A better option than `go`, if the producer or consumer will take
+;; a "long time", is `thread`. (Notice the "blocking take".)
+(thread (println (<!! echo-chan)))
+(Thread/sleep 100)
+(>!! echo-chan "mustard")
+
 (println "Ending `playsync.core`")
