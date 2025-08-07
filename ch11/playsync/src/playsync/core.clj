@@ -73,4 +73,23 @@
 (Thread/sleep 100)
 (>!! echo-chan "mustard")
 
+;; When `thread`'s process stops, the process's return value is
+;; put on the channel returned by `thread`.
+;;
+;; The reason for using `thread` instead of `go` is to avoid
+;; "clogging/hogging" your thread pool threads.
+(let [t (thread "chill")]
+  (<!! t))
+
+;; A good summary.
+;;
+;; """`go, thread, chan, <!, <!!, >!`, and `>!!` are the core
+;; tools you'll use for creating and communicating with processes.
+;; Both put and take will cause a process to wait until its
+;; complement is performed on the given channel, `go` allows you
+;; to use the parking variants of put and take, which could improve
+;; performance. You should use the blocking variants, along with
+;; `thread`, if you're performing long-running tasks before the
+;; put or take.
+
 (println "Ending `playsync.core`")
