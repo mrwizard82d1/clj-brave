@@ -52,4 +52,11 @@
 ;; But don't try to take any others, or you will **block**
 ;; (println (<!! echo-buffer))
 
+;; Similarly, a parking take would remove items.
+(>!! echo-buffer "ketchup")
+(>!! echo-buffer "more ketchup")
+
+(go (println (<! echo-buffer))
+    (println (<! echo-buffer)))
+
 (println "Ending `playsync.core`")
