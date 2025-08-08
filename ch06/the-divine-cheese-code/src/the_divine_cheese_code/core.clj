@@ -1,6 +1,8 @@
 (ns the-divine-cheese-code.core
   ;; A simpler way to "require and refer" a namespace
-  (:require [the-divine-cheese-code.visualization.svg :as svg]))
+  (:require [clojure.java.browse :as browse]
+            [the-divine-cheese-code.visualization.svg :refer [xml]])
+  (:gen-class))
 
 (def heists [{:location "Cologne, Germany"
               :cheese-name "Archbiship Hildebold's Cheese Pretzel"
@@ -17,12 +19,29 @@
              {:location "Zurich, Switzerland"
               :cheese-name "The Lesser Elemental"
               :lat 47.37
-              :long 8.55}
+              :lng 8.55}
              {:location "Vatican City"
               :cheese-name "The Cheese of Turin"
               :lat 41.90
               :lng 12.45}])
 
+(defn url
+  [filename]
+  (str "file:///"
+       (System/getProperty "user.dir")
+       "/"
+       filename))
+
+(defn template
+  [contents]
+  (str "<style>polyline { file:none; stroke:#5881d8; stroke-width:3}</style>"
+       contents))
+
 (defn -main
   [& args]
-  (println (svg/points heists)))
+  (let [filename "map.html"]
+    (->> heists
+         (xml 50 100)
+         template
+         (spit filename))
+    (browse/browse-url (url filename))))
