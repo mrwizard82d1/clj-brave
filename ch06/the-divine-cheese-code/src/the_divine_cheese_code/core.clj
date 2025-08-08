@@ -1,11 +1,6 @@
-(ns the-divine-cheese-code.core)
-
-;; Ensure that the SVG code is evaluated
-(require 'the-divine-cheese-code.visualization.svg)
-
-;; Refer to the namespace so that I need not use fully qualified names
-;; to reference svg functions
-(refer 'the-divine-cheese-code.visualization.svg)
+(ns the-divine-cheese-code.core
+  ;; A simpler way to "require and refer" a namespace
+  (:require [the-divine-cheese-code.visualization.svg :as svg]))
 
 (def heists [{:location "Cologne, Germany"
               :cheese-name "Archbiship Hildebold's Cheese Pretzel"
@@ -30,4 +25,4 @@
 
 (defn -main
   [& args]
-  (println (points heists)))
+  (println (svg/points heists)))
