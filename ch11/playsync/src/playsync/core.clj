@@ -92,4 +92,56 @@
 ;; `thread`, if you're performing long-running tasks before the
 ;; put or take.
 
+;; The Hot Dog Machine Process You've Been Longing For
+
+;; A function that takes "payment" and gives hot dogs.
+(defn hot-dog-machine
+  []
+  (let [in (chan)
+        out (chan)]
+    ;; Take anything and put out a hot day
+    (go (<! in)
+        (>! out "hot dog'"))
+    [in out]))
+
+;; I'm hungry. Time to get a hot dog.
+;;
+;; Money for nothin' /
+;; And my hot dogs "for free"
+(let [[in out] (hot-dog-machine)]
+  (>!! in "pocket lint")
+  (<!! out))
+
+;; Let's try to do better with this version.
+(defn hot-dog-machine-v2
+  [hot-dog-count]
+  (let [in (chan)
+        out (chan)]
+    (go (loop [hc hot-dog-count]
+          (if (> hc 0)
+            (let [input (<! in)]
+              (if (= 3 input)
+                (do (>! out "hot dog")                      ;; dispense a hot dog
+                    (recur (dec hc)))                       ;; and recur
+                (do (>! out "wilted lettuce")               ;; dispense wilted lettuce
+                    (recur hc))))                           ;; and also recur
+            (do (close! in)
+                (close! out)))))
+    [in out]))
+
+;; Let's test our new-fangled hot dog machine
+(let [[in out] (hot-dog-machine-v2 2)]
+  (>!! in "pocket lint")                                    ;; Try some more pocket line
+  (println (<!! out))                                       ;; Drat!
+
+  (>!! in 3)                                                ;; Grumble, grumble grumble
+  (println (<!! out))
+
+  (>!! in 3)                                                ;; Umm. tasty!
+  (println (<!! out))
+
+  (>!! in 3)                                                ;; Must have more cookies - er - hot dogs
+  (<!! out))                                                ;; Hey! What about my money!
+
+
 (println "Ending `playsync.core`")
