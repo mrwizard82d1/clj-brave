@@ -152,3 +152,26 @@
 ;; Without unuoting, syntax quating returns the **unevaluated** form with
 ;; fully qualified names.
 `(+ 1 (inc 1))
+
+;; Syntax quoting and unquoting allow one to create lists more clearly
+;; and concisely.
+(list '+ 1 (inc 1))
+
+`(+ 1 ~(inc 1))
+
+;; Using Syntax Quoting in a Macro
+;;
+
+;; The original version of a macro with **no** syntax quoting
+(defmacro code-critic
+  "Phrases courtesy Hermes Conrad from Futurama"
+  [bad good]
+  (list 'do
+        (list 'println
+              "Great squid of Madrid, this is bad code:"
+              (list 'quote bad))
+        (list 'println
+              "Sweet gorilla of Manilla, this is good code:"
+              (list 'quote good))))
+
+(code-critic (1 + 1) (+ 1 1))
