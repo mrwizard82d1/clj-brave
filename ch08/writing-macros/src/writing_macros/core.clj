@@ -175,3 +175,70 @@
               (list 'quote good))))
 
 (code-critic (1 + 1) (+ 1 1))
+
+;; This "style" works but is neither sleek nor concise.
+;; But with syntax quoting...
+(defmacro code-critic
+  "Phrases courtesy Hermes Conrad from Futurama"
+  [bad good]
+  `(do (println "Great squid of Madrid, this is bad code:"
+                (quote ~bad))
+       (println "Sweet gorilla of Manilla, this is good code:"
+                (quote ~good))))
+
+;; And behaves the same
+(code-critic (1 + 1) (+ 1 1))
+
+;; Refactoring a Macro and Unquote SplicingA
+;;
+
+;; We can still clean up the implementation of the `code-critic` macro.
+;; Start by extracting the calls to `println` into a function.
+(defn criticize-code
+  [criticism code]
+  `(println ~criticism (quote ~code)))
+
+(defmacro code-critic
+  [bad good]
+  `(do ~(criticize-code "Cursed bacteria of Liberia, this is bad code:" bad)
+       ~(criticize-code "Sweet sacred boa of Western and Eastern Samoa, this is good code"
+                        good)))
+
+(code-critic (1 + 1) (+ 1 1))
+
+;; There's still room for improvement. Because the code has almost identical
+;; calls to `criticize-code`, we can use `map` to apply this function to a
+;; collection of values.
+(defmacro code-critic
+  [bad good]
+  `(do ~(map #(apply criticize-code %)
+             [["Great squid of Madrid, this is bad code:" bad]
+              ["Sweet gorilla of Manilla, this is good code:" good]])))
+
+;; But when we use our "improved" macro...,
+;; ...we encounter a `NullPointerException`.
+;; (code-critic (1 + 1) (+ 1 1))
+
+;; The "problem": `map` returns a list of the results of the two `println`
+;; calls. But the **returned value** of `println` is **`null`*8. Consqueontly,
+;; we get a list consisting of two `null` values which is, in turn,
+;; evaluated, resulting in a reference to `null` (the first element of the
+;; list).
+
+;; Unquote splicing was invented to solve this precise situaton.
+
+;; Simply unquoting **does not** produce what we want
+`(+ ~(list 1 2 3))
+
+;; But unqote splicing splices in our unquoted result
+`(+ ~@(list 1 2 3))
+
+;; We can use unquote splicing to solve our definition of the
+;; `code-critic` macro.
+(defmacro code-critic
+  [bad good]
+  `(do ~@(map #(apply criticize-code %)
+              [["Sweet lion of Zion, this is bad code:" bad]
+               ["Great cow of Moscov, this is good code:" good]])))
+
+(code-critic (1 + 1) (+ 1 1))
