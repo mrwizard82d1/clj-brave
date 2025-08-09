@@ -242,3 +242,57 @@
                ["Great cow of Moscov, this is good code:" good]])))
 
 (code-critic (1 + 1) (+ 1 1))
+
+;; Things to watch out for
+;;
+
+;; Variable Capture
+(def message "Good job!")
+(defmacro with-mischief
+  [& stuff-to-do]
+  (concat (list 'let ['message "Oh, big deal!"])
+          stuff-to-do))
+
+;; I expect this to contain "Good job!" but...
+;; I have "captured" `message` internally.
+(with-mischief
+  (println "Here's how I feel about that thing you did:"
+           message))
+
+;; Using syntax quoting causes an execption.
+(def message "Good job!")
+(defmacro with-mischief
+  [& stuff-to-do]
+  `(let [message "Oh, big deal!"]
+     ~@stuff-to-do))
+
+;; (with-mischief
+;;   (println "Here's how I feel about that thing you did: " message))
+
+;; One way to avoid this issue is to use `gensym`. Invoking `gensym` produces
+;; unique symbols on each successive call.
+(gensym)
+
+(gensym)
+
+;; Another option is to pass a prefix for the generated symbols.
+(gensym 'message)
+
+(gensym 'message)
+
+;; We can use `gensym` to make `with-mischief` less mischievous.
+(defmacro without-mischief
+  [& stuff-to-do]
+  (let [macro-message (gensym 'message)]
+    `(let [~macro-message "Oh, big deal!"]
+       ~@stuff-to-do
+       (println "I still need to say: " ~macro-message))))
+
+(without-mischief
+  (println "Here's how I feel about that thing you did: " message))
+
+;; Using `gensym` in this manner is so common that we can actually use
+;; an `auto-gensym`.
+`(blarg# blarg#)
+
+`(let [name# "Larry Potter"] name#)
