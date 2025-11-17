@@ -275,7 +275,8 @@
 
 (gensym)
 
-;; Another option is to pass a prefix for the generated symbols.
+;; Another option is to pass a prefix for the generated symbol
+;; s.
 (gensym 'message)
 
 (gensym 'message)
@@ -296,3 +297,19 @@
 `(blarg# blarg#)
 
 `(let [name# "Larry Potter"] name#)
+
+;; Double Evaluation
+;;
+
+;; Another "gotcha'" occurs when a form passed to a macro as an argument
+;; is evaluated more than one times.
+(defmacro report
+  [to-try]
+  `(if ~to-try
+     (println (quote ~to-try) "was successful:" ~to-try)
+     (println (quote ~to-try) "was not successful:" ~to-try)))
+
+;; Notice that `Thread/sleep` sleeps for the specified milliseconds
+;; One might expect this code to wait 1 seconds, but, because of the
+;; macro, it sleesp for **2 seconds**.
+(report (do (Thread/sleep 1000) (+ 1 1)))
