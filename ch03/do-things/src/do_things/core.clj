@@ -396,3 +396,40 @@ error-message
     "That number's OK, I guess."))
 (number-comment 6)
 (number-comment 7)
+
+;; ### Anonymous functions
+
+(map (fn [name] (str "Hi, " name))
+     ["Darth Vader" "Mr. Magoo"])
+
+((fn [x] (* x 3)) 8)
+
+(def my-special-multiplier (fn [x] (* x 3)))
+(my-special-multiplier 12)
+
+;; A more compact way to create anonymous functions.
+(#(* % 3) 8)
+
+(map #(str "Hi, " %)
+     ["Darth Vader" "Mr. Magoo"])
+
+;; Multiple arguments
+(#(str %1 " and " %2) "cornbread" "butter beans")
+
+;; Use `%&` to handle a rest parameter.
+(#(identity %&) 1 "blarg" :yip)
+
+;; ### Returning functions
+
+;; You've already seen that functions can **return other functions***.
+;; The returned functions are _closures_. This term means that they
+;; can access all variables that were in scope when the function was
+;; created.
+(defn inc-maker
+  "Create a custom incrementor"
+  [inc-by]
+  #(+ % inc-by))
+
+(def inc3 (inc-maker 3))
+
+(inc3 7)
