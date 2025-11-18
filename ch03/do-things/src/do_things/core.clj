@@ -433,3 +433,127 @@ error-message
 (def inc3 (inc-maker 3))
 
 (inc3 7)
+
+;; ## Putting It All Togther
+
+;; ### The Shire's Next Top Model
+(def asym-hobbit-body-parts [{:name "head" :size 3}
+                             {:name "left-eye" :size 1}
+                             {:name "left-ear" :size 1}
+                             {:name "mouth" :size 1}
+                             {:name "nose" :size 1}
+                             {:name "neck" :size 2}
+                             {:name "left-shoulder" :size 3}
+                             {:name "left-upper-arm" :size 3}
+                             {:name "chest" :size 10}
+                             {:name "back" :size 10}
+                             {:name "left-forearm" :size 3}
+                             {:name "abdomen" :size 6}
+                             {:name "left-kidney" :size 3}
+                             {:name "left-hand" :size 2}
+                             {:name "left-knee" :size 2}
+                             {:name "left-thigh" :size 4}
+                             {:name "left-lower-leg" :size 3}
+                             {:name "left-achilles" :size 1}
+                             {:name "left-foot" :size 2}])
+
+(defn matching-part
+  [part]
+  {:name (clojure.string/replace (:name part) #"^left-" "right-")
+   :size (:size part)})
+
+(defn symmetrize-body-parts
+  "Expects a seq of maps that have :name and :size keys"
+  [asym-body-parts]
+  (loop [remaining-asym-parts asym-body-parts
+         final-body-parts []]
+    (if (empty? remaining-asym-parts)
+      final-body-parts
+      (let [[part & remaining] remaining-asym-parts]
+        (recur remaining
+               (into final-body-parts
+                     (set [part (matching-part part)])))))))
+
+(symmetrize-body-parts asym-hobbit-body-parts)
+
+;; #### `let`
+
+(let [x 3]
+  x)
+
+(def dalmation-list
+  ["Pongo" "Perdita" "Puppy 1" "Puppy 2"])
+
+(let [dalmations (take 2 dalmation-list)]
+  dalmations)
+
+;; `let` introductes a new scope`
+(def x 0)
+(let [x 1] x)
+
+;; One can reference existing bindings in `let` bindings
+(def x 0)
+(let [x (inc x)] x)
+(println "The value of x at the top-level is unchanged: " x)
+
+;; One can also use rest parameters in `let`
+(let [[pongo & dalmations] dalmation-list]
+  [pongo dalmations])
+
+;; `let` has two main uses. First, they provide clarity by allowing
+;; you to name things. Second, they allow you to evaluate an
+;; expression exactly once and reuse the result.
+;;
+;; For example, in `symmetrize-body-parts`, we call
+;; `(into final-body-parts (set [part matching-part part]))`
+;; Here is a simplified example:
+(into [] (set [:a :a]))
+
+;; Back to `let`: notice that `part` is used multiple times in the
+;; body of the `let`. So, `let` is a handy^lef way to introduce local
+;; names for values, which helps simplify the code.
+
+;; #### `loop`
+
+;; The function `symmetrize-body-parts` uses `loop` which provides
+;; a way to do recursion in Clojure. Here's a simple example:
+(loop [iteration 0]
+  (println (str "Iteration " iteration))
+  (if (> iteration 3)
+    (println "Goodbye!")
+    (recur (inc iteration))))
+
+;; One could accomplish the same result by using a normal function
+;; definition.
+(defn recursive-printer
+  ([]
+   (recursive-printer 0))
+  ([iteration]
+   (println (str "Iteration " iteration))
+   (if (> iteration 3)
+     (println "Goodbye!")
+     (recursive-printer (inc iteration)))))
+(recursive-printer)
+
+;; Note that this function is a bit more verbose. In addition,
+;; `loop` has **much** better performance
+
+;; #### Regular Expressions
+
+;; The literal notation for a regular expression is to place the
+;; expression in quotes after a hash mark. For example,
+#"regular-expression"
+
+;; In our code, the regular expression is `#"^left-"`` which matches
+;; the text "left-" but only if it's at the beginning of the string.
+;; We can test our regular expression with `re-find`.
+
+(re-find #"^left-" "left-eye")
+(re-find #"^left-" "cleft-chin")
+(re-find #"^left-" "wonglebart")
+
+;; Here are a couple of examples of `matching-part` using a regex to
+;; replace "left-" with "right-". Here are a couple of examples.
+;; Notice that the map with `:name` "head" is returned unchanged.
+(matching-part {:name "left-eye" :size 3})
+(matching-part {:name "head" :size 3})
