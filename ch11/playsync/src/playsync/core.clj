@@ -323,6 +323,64 @@
     (println value)
     (= channel c2)))
 
+;; ## Queues
+
+;; Here's the problem. I want to get random quotations from a website
+;; and write them to a **single** file. I want to prevent interleaving
+;; the write "operation" so I put my quotes on a queue.
+
+(defn append-to-file
+  "Write a string to the end of a file"
+  [filename s]
+  (spit filename s :append true))
+
+(append-to-file "quotes.txt" "To be or not to be\n")
+
+(defn format-quote
+  "Delineate the beginning and end of a quote because its convenient"
+  [quote]
+  ;; This expression assumes that `quote` has a terminating newline
+  ;; character.
+  (str "=== BEGIN QUOTE ===\n" quote "=== END QUOTE \\\\n\n"))
+
+(format-quote "To be or not to be\n")
+
+(defn random-quote
+  "Retrieve a random quotation and format it"
+  []
+  ;; BEWARE: this web site **does not exist**. Consequently,
+  ;; `snag-quotes` prints the prelude and postlude (defined in
+  ;; `format-quote`) but nothing else. Other quote sites exist,
+  ;; but right now, I don't want to spend the time determining
+  ;; how to use them correctly. (A quick look at a couple returned
+  ;; a quotation inside a JSON structure. Clojure can handle this
+  ;; situation, but I would need to fill in details.)
+  (format-quote (slurp "http://www.braveclojure.com/random-quote")))
+
+(random-quote)
+
+;; This function, `snag-quotes`, is where the interesting work occurs.
+;; It starts be creating a channel shared between producing and
+;; consuming processes. It then creates one infinite process using
+;; `while true`. On every iteration, this process waits for a quote
+;; to arrive on the channel, `c`, and then appends that quote to the
+;; file. Finally, `snag-quotes` creates `num-quotes` processes that
+;; fetch a quote and puts that fetched quotation on `c`.
+(defn snag-quotes
+  [filename num-quotes]
+  (let [c (chan)]
+    (go (while true
+          (append-to-file filename (<! c))))
+    (dotimes [n num-quotes]
+      (go (>! c (random-quote))))))
+
+(snag-quotes "quotes.txt" 2)
+
+;; This kind of queueing differs from the example in "Chapter 9".
+;; In that example, each task was handled in the order it was created.
+;; Here, each quote-retrieving task is handled in the order that it
+;; finished. However, in both cases, the code ensures that we only
+;; write **one** quote at a time to the output file.
 
 (defn -main
   "I don't do a whole lot ... yet."
