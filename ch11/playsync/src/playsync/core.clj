@@ -263,21 +263,65 @@
 ;; > notified the headshot owner when the first photo was uploaded.
 ;; > Here's how you'd do the same with `alt!!`:
 
-#_(defn upload
-    [headshot c]
-    (go (Thread/sleep (rand 100))
-        (>! c headshot)))
+(defn upload
+  [headshot c]
+  ;; The code from the book supplied the argument, `(rand 100)`, to
+  ;; `Thread/sleep`. I think this worked in the past but no longer
+  ;; works. Perhaps because `Thread/sleep` expects an integral argument
+  ;; and `(rand 100)` returns a floating point value.
+  ;;
+  ;; To correct the problem, I manually converted the result of
+  ;; `(rand 100)` to an integral argument.
+  ;;
+  ;; Here's some text from Google Gemini about type conversions.
+  ;; > Type Hinting: While Clojure often handles type conversions
+  ;; > automatically, especially with recent JDK versions (JDK 19+),
+  ;; > it is good practice to ensure the argument passed to
+  ;; > Thread/sleep is a long to avoid potential reflection issues or
+  ;; > errors in older JDKs or environments like Babashka. You can
+  ;; > explicitly cast it using (long x).
+  (go (Thread/sleep (long (rand 100)))
+      (>! c headshot)))
 
-(rand 100)
+(let [c1 (chan)
+      c2 (chan)
+      c3 (chan)]
+  (upload "serious.jpg" c1)
+  (upload "fun.jpg" c2)
+  (upload "sassy.jpg" c3)
+  ;; The `alts!!` function takes a vector of channels as its
+  ;; argument. It effectively says, "Try to do a blocking take
+  ;; on each of these channels simultaneously. As soon as a
+  ;; take succeeds, return a vector whose first element is
+  ;; the value taken and whose second argument is the winning
+  ;; channel."
+  ;;
+  ;; Note that `alts!!` only takes a value from the **first**
+  ;; channel to have a value. All other channels are left **as is.**
+  (let [[headshot channel] (alts!! [c1 c2 c3])]
+    (println "Sending headshot notification for" headshot)))
 
-#_(let [c1 (chan)
-        c2 (chan)
-        c3 (chan)]
-    (upload "serious.jpg" c1)
-    (upload "fun.jpg" c2)
-    (upload "sassy.jpg" c3)
-    (let [[headshot channel] (alts!! [c1 c2 c3])]
-      (println "Sending headshot notification for" headshot)))
+;; > One cool aspect of `alts!!` is that you can give it a
+;; > **timeout channel**, which waits the specified number of
+;; > milliseconds and then closes. It's an elegant mechanism
+;; > for putting a time limit on concurrent operations. Here's
+;; > how you could use it with the upload service.
+
+(let [c1 (chan)]
+  (upload "serious.jpg" c1)
+  (let [[headshot channel] (alts!! [c1 (timeout 20)])]
+    (if headshot
+      (println "Sending headshot notification for" headshot)
+      (println "Timed out!"))))
+
+;; One can also use `alts!!  for put operations. Here's an example:
+
+(let [c1 (chan)
+      c2 (chan)]
+  (go (<! c2))
+  (let [[value channel] (alts!! [c1 [c2 "put!"]])]
+    (println value)
+    (= channel c2)))
 
 
 (defn -main
