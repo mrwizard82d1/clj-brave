@@ -59,7 +59,132 @@
 ;; > to receive message; they also wait for messages they put on a
 ;; > channel to be taken.
 
-;; Buffering
+;; ## Buffering
+
+;; Create buffered channels
+
+(def echo-buffer (chan 2))
+
+;; Since we've created a channel with 2 "slots", we can `put` two
+;; items into the channel **without** blocking.
+(>!! echo-buffer "ketchup")
+(>!! echo-buffer "ketchup")
+
+;; If we attempt to put more "ketchup" on the channel, we will
+;; **block** until another process takes at least one item from
+;; the channel.
+;;
+;; `(>!! echo-buffer "ketchup")`
+;;
+;; This expression would block (the REPL) until some other process
+;; takes an item from `echo-buffer` freeing a "slot" for another item.
+
+;; In addition to the "blocking" buffer we just created, `core.async`
+;; supports creating:
+;;
+;; - *sliding* buffers using `sliding-buffer`
+;; - *dropping* buffers using `dropping-buffer`
+;;
+;; A ``sliding-buffer`` drops values in a first-in, first-out fashion. A
+;; `dropping-buffer` discards values in a last-in, first-out fashion.
+;; Neither a `sliding-buffer` nor a `dropping-buffer` will ever cause
+;; `<!!` to block.
+
+;; ## Blocking and parking
+
+;; Both put and take have "one-exclamation" and "two-exclamation"
+;; versions. But how does one decide which is appropriate?
+;;
+;; The simple answer:
+;;
+;; Operation      Inside go block     Outside go block
+;; =========      ===============     ================
+;; put            `>!` or `>!!`       `>!!`
+;; take           `<!` or `<!!`       `<!!``
+
+;; Because go blocks use a fixed size thread pool, you can create
+;; 1000 go processes but only use a handful of threads. The following
+;; code creates 1000 go processes that are waiting for
+;; **some other process** to consume these values.
+(def hi-chan (chan))
+(doseq [n (range 1000)]
+  (go (>! hi-chan (str "hi " n))))
+
+;; However, notice that the values taken from the channel are printed
+;; in a **arbitrary** order.
+(do
+ (doseq [n (range 1000)]
+   (print (str " " (<!! hi-chan) "!")))
+ (println))
+
+;; Two types of waiting occur in a Clojure program: *parking* and
+;; *blocking*. Blocking occurs when a thread stops execution until
+;; the task is **complete**. When blocked, a thread from the thread
+;; pool is **consumed** and not available for any other work.
+;;
+;; Parking releases the thread so it can do other work. For example,
+;; imagine you have one thread but two processes, Process A and
+;; Process B. Process A runs on the thread and then waits for a
+;; put or take to complete. Clojure then moves Process A off the
+;; thread and moves Process B onto the thread. If Process B waits
+;; **and** Process A's put or take is finished, Clojure will then
+;; move Process B **off the thread** and put Process A back on it.
+;;
+;; > Parking allows the instructions from multiple processes to
+;; > interleave on a single thread, similar to the way that using
+;; > multiple threads allows interleaving on a **single core**
+;; > (Emphasis added.)
+;;
+;; Remember that parking is only possible **within go blocks** and
+;; it's only possible when you use `>!` and `<!` (*parking put* and
+;; *parking take*, respectively).
+;;
+;; Furthermore, `>!!` and `<!!` are **blocking** put and take,
+;; respectively.
+
+;; ## Thread
+
+;; > There are definitely times when you'll want to use blocking
+;; > instead of parking, like when your process will take a long
+;; > time before putting or taking, and for those occassions you
+;; > should use `thread`.
+(thread (println (<!! echo-chan)))
+(>!! echo-chan "mustard")
+
+;; Whereas `future` provides similar functionality (creating a thread
+;; on which work is performed), `future` returns an object that you
+;; can dereference at some future time, `thread` returns a **channel**.
+;; When the process associated with `thread` stops, the return value
+;; of the process is put on the channel returned by `thread`.
+
+(let [t (thread "chili")]
+  (<!! t))
+
+;; In this example, the process stops immediately. It's return value
+;; is "chili" which gets put on the channel bound to `t`. We take the
+;; value from `t` returning the string, "chili".
+
+;; > The reason you should use `thread` instead of a go block when
+;; > you're performing a long-running task is so you don't clog your
+;; > thread pool. Imagine you're running four processes that download
+;; > humongous files, save them, and then put the file paths on a
+;; > channel. While the processes are downloading the files and saving
+;; > these files, Clojure can't park their threads. It can park the
+;; > thread only at the last step, when the process puts the files'
+;; > paths on a channel. Therefore, if you thread pool has only four
+;; > threads, all four threads will be used for downloading, and no
+;; > other process will be allowed to run until one of the downloads
+;; > finishes.
+
+;; The function, `go`, `thread`, `chan`, `<!`, `<!!`, `>!`, and `>!!`
+;; are the core tools you'll use for creating and communicating with
+;; processes. Both put and take cause a process to wait until its
+;; complement is performed on a given channel (a rendezvous).
+;;
+;; The function, `go`, allows one to use the parking variants of put
+;; and take. Using the parking variants **may** improve performance.
+;; However, if you're performing "long running" tasks, use the
+;; blocking variants along with `thread`.
 
 
 (defn -main
