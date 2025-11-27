@@ -186,6 +186,22 @@
 ;; However, if you're performing "long running" tasks, use the
 ;; blocking variants along with `thread`.
 
+;; ## The hot dog machine process you've been longing for
+
+;; An incorrect iteration of our hot dog machine.
+
+(defn hot-dog-machine
+  []
+  (let [in (chan)
+        out (chan)]
+    (go (<! in)
+        (>! out "hot dog"))
+    [in out]))
+
+(let [[in out] (hot-dog-machine)]
+  (>!! in "pocket lint")
+  (<!! out))
+
 
 (defn -main
   "I don't do a whole lot ... yet."
