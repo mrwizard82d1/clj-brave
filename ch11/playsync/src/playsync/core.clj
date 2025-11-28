@@ -382,6 +382,50 @@
 ;; finished. However, in both cases, the code ensures that we only
 ;; write **one** quote at a time to the output file.
 
+;; ## Escape callback hell with process pipelines
+
+;; Channels allow one to transform "callback hell" into a process
+;; pipeline. For example, the following code
+;;
+;; > ...Creates three infinitely looping processes connected through
+;; > channels, passing the *out* channel of one process as the *in*
+;; > channel of the next process in the pipeline.
+
+(defn upper-caser
+  [in]
+  (let [out (chan)]
+    (go (while true
+          (>! out (clojure.string/upper-case (<! in)))))
+    out))
+
+(defn reverser
+  [in]
+  (let [out (chan)]
+    (go (while true
+          (>! out (clojure.string/reverse (<! in)))))
+    out))
+
+(defn printer
+  [in]
+  (go (while true
+        (println (<! in)))))
+
+(def in-chan (chan))
+(def upper-caser-out (upper-caser in-chan))
+(def reverser-out (reverser upper-caser-out))
+(printer reverser-out)
+
+(>!! in-chan "redrum")
+
+(>!! in-chan "repaid")
+
+;; By handling events using processes like this, it's easier to reason
+;; about the individual steps of the overall data transformation
+;; system. You can look at each step and understand what it does without
+;; having to refer to what might have happened before it or what might
+;; happen after it; each process is as easy to reason about as a pure
+;; function.
+
 (defn -main
   "I don't do a whole lot ... yet."
   [& args]
