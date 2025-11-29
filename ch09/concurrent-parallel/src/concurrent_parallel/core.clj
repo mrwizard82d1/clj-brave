@@ -52,7 +52,71 @@
 (let [f (future)]
   @f)
 
-(defn foo
-  "I don't do a whole lot."
-  [x]
-  (println x "Hello, World!"))
+;; ### Delays
+
+;; Delays allow one to define a task without having to execute it or
+;; to require the result imediately.
+
+(def jackson-5-delay
+  (delay (let [message "Just call my name and I'll be there"]
+           (println "First deref: " message)
+           message)))
+
+;; At first glance, one migt expect the message to print when the
+;; value is defined. In actuality, the `delay` delays the evaluation
+;; of the `let` form.
+
+;; One can evaluate the delay and get its result by:
+;;
+;; - Dereferencing the value
+;; - Using `force`
+;;
+;; Using `force` behaves identically to `deref` but it communicates
+;; more clearly that you are causing a task to start instead of
+;; waiting for a task to finish.
+
+(force jackson-5-delay)
+
+;; Like futures, a delay is
+;;
+;; - Run only once
+;; - Its value is cached
+
+@jackson-5-delay
+
+;; One way to use a delay is to fire off a statement the **first time**
+;; one future of a group of futures finishes. For example, pretend you
+;; have an app that uploads a set of headshots to a headshot-sharting
+;; site and notifies the owner as soon as the firsnt one is up.
+
+ (def gimli-headshots ["serious.jpg" "fun.jpg" "playful.jpg"])
+
+(defn email-user
+  [email-address]
+  (println "Sending headshot notification to" email-address))
+
+(defn upload-document
+  "Needs to be implemented"
+  [headshot]
+  true)
+
+(let [notify (delay (email-user "and-my-axe@gmail.com"))]
+  (doseq [headshot gimli-headshots]
+    (future (upload-document headshot)
+            (force notify))))
+
+;; This example uses `let` to bind `notify` to a delay. The body of the
+;; delay, `(email-user "and-my-axe@gmail.com")` is **not** evaluated when
+;; the delay is created. Instead, the `delay` bedy is evaluated the
+;; first time one of the created futures created by the `doseq form
+;; evaluates `(force notify)` three times, the `delay` is only evaluated
+;; **once**.
+
+;; This technique can help protect you from the mutual exclusion
+;; "Concurrency Goblin." In this example, the delay guards the email
+;; server resource. Because the body of a delay is guaranteed to be
+;; evaluated **only once**,
+;;
+;; On the other hand, no thread can ever use the delay to send an email
+;; again. This constraint might be too drastic for most situations, but
+;; it works perfectly in cases like this.
