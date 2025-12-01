@@ -89,7 +89,7 @@
 ;; have an app that uploads a set of headshots to a headshot-sharting
 ;; site and notifies the owner as soon as the firsnt one is up.
 
- (def gimli-headshots ["serious.jpg" "fun.jpg" "playful.jpg"])
+(def gimli-headshots ["serious.jpg" "fun.jpg" "playful.jpg"])
 
 (defn email-user
   [email-address]
@@ -228,3 +228,83 @@
   (Thread/sleep 100)
   ;; Deliver the promise
   (deliver ferengi-wisdom-promise "Whisper your way to success."))
+
+;; ## Rolling your own queue
+
+;; If you want to ensure that only one task will access a shared
+;; resource at a time, you can place the resource access code portion
+;; of that task on a queue that is executed **serially**. (Similar to
+;; an actor but no distribution.)
+
+;; Here's a queueing macro that we use to execute a resource after a
+;; specified delay.
+(defmacro wait
+  "Sleep `timeout` seconds before evaluating body"
+  [timeout & body]
+  `(do (Thread/sleep ~timeout) ~@body))
+
+;; Here is the "post-macroexpansion" code that we want to generate.
+(let [saying3 (promise)]
+  (future (deliver saying3 (wait 100 "Cheerio!")))
+  @(let [saying2 (promise)]
+     (future (deliver saying2 (wait 400 "Pip pip!")))
+     @(let [saying1 (promise)]
+        (future (deliver saying1 (wait 200 "'Ello, gov'na!")))
+        (println @saying1)
+        saying1)
+     (println @saying2)
+     saying2)
+  (println @saying3)
+  saying3)
+
+;; The overall strategy is to create a promise for each task (printing
+;; part of a greeting) to create a corresponding future that will
+;; deliver a concurrently computed value to the promise.
+;;
+;; This construction ensures that all of the futures are created before
+;; any of the promises are dereferenced. Additionally, it ensures that
+;; the serialized portion of each task is executed in the correct
+;; overall order.
+;;
+;; Note that dereferencing the `let` blocks allows one to abstract this
+;; code with a macro
+
+;; Here's how the code would work for our example.
+
+;; (-> (enqueue saying (wait 200 "'Ello, gov'na!") (println @saying))
+;;     (enqueue saying (wait 400 "Pip pip!") (println @saying))
+;;     (enqueue saying (wait 100 "Cheerio!") (println @saying)))
+
+;; And here's the `enqueue` macro:
+
+(defmacro enqueue
+  ([q concurrent-promise-name concurrent serialized]
+   `(let [~concurrent-promise-name (promise)]
+      (future (deliver ~concurrent-promise-name ~concurrent))
+      (deref ~q)
+      ~serialized
+      ~concurrent-promise-name))
+  ([concurrent-promise-name concurrent serialized]
+   `(enqueue (future) ~concurrent-promise-name ~concurrent ~serialized)))
+
+;; This macro has two arities in order to supply a default value. The
+;; real work is done in the 4-arity implementation; the 3-arity
+;; implementation calls the 4-arity implementation supplying the
+;; result of `(future)` as the `q` parameter. The `let` "call" returns
+;; a form that
+;;
+;; - Creates a `promise`
+;; - Delivers that value of that `promise` in a `future`
+;; - Dereferences the form supplied for `q`
+;; - Evaluates the **serialized** code
+;; - Finally returns the promise
+;;
+;; `q` will typically be a nested `let` expression returned by
+;; **another** call to `enqueue`. If **no value is supplied for `q`**,
+;; we create a **new** `future` so that the `deref` function **does not**
+;; cause an exception.
+
+;; Here's how we might run this code (in a `time` cal0)
+(time @(-> (enqueue saying (wait 200 "'Ello, gov'na!") (println @saying))
+           (enqueue saying (wait 400 "Pip, pip!") (println @saying))
+           (enqueue saying (wait 100 "Cheerio!") (println @saying))))
